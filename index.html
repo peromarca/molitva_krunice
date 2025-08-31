@@ -232,7 +232,7 @@
       // JSONBin.io konfiguracija - postavite svoje podatke
       const JSONBIN_CONFIG = {
          binId: '68b44f0dd0ea881f406cfd4e', // Vaš bin ID
-         accessKey: '$2a$10$I2wEmhX.DPtB ALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key
+         accessKey: '$2a$10$I2wEmhX.DPtBALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key (uklonjen razmak)
          baseUrl: 'https://api.jsonbin.io/v3'
       };
 
@@ -308,15 +308,19 @@
                return;
             }
 
+            console.log('Pokušavam učitati podatke s JSONBin.io...');
             const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${JSONBIN_CONFIG.binId}/latest`, {
                headers: {
                   'X-Access-Key': JSONBIN_CONFIG.accessKey
                }
             });
 
+            console.log('Response status:', response.status);
+
             if (response.ok) {
                const data = await response.json();
                scheduleData = data.record || {};
+               console.log('Podaci uspješno učitani:', scheduleData);
 
                // Provjeri da li su svi datumi prisutni
                dates.forEach(dateObj => {
@@ -329,13 +333,16 @@
                      };
                   }
                });
+               showStatus('Podaci uspješno učitani s clouda!', 'success');
             } else {
-               throw new Error('Greška pri učitavanju podataka');
+               const errorText = await response.text();
+               console.error('API Error:', response.status, errorText);
+               throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
          } catch (error) {
             console.error('Greška:', error);
             initializeData();
-            showStatus('Greška pri učitavanju. Koristim lokalne podatke.', 'error');
+            showStatus(`Greška: ${error.message}. Koristim lokalne podatke.`, 'error');
          }
 
          renderTable();
