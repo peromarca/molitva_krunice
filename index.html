@@ -20,7 +20,7 @@
       }
 
       .container {
-         max-width: 1200px;
+         max-width: 1400px;
          margin: 0 auto;
          background: white;
          border-radius: 15px;
@@ -108,6 +108,40 @@
          background: #c3e6cb;
       }
 
+      /* ✅ Novi stilovi za POST stupac */
+      .post-cell {
+         background: #fff5f5;
+         position: relative;
+      }
+
+      .post-cell:hover {
+         background: #e3f2fd;
+         transform: scale(1.02);
+      }
+
+      .post-cell.filled {
+         background: #d4edda;
+         color: #155724;
+         font-weight: bold;
+      }
+
+      .post-cell.filled:hover {
+         background: #c3e6cb;
+      }
+
+      /* ✅ Crvena polja za nedjelje - onemogućena */
+      .post-cell.disabled {
+         background: #f8d7da !important;
+         color: #721c24;
+         cursor: not-allowed;
+         font-weight: bold;
+      }
+
+      .post-cell.disabled:hover {
+         background: #f8d7da !important;
+         transform: none;
+      }
+
       .loading {
          text-align: center;
          padding: 40px;
@@ -165,6 +199,11 @@
          background: #d4edda;
       }
 
+      /* ✅ Nova legenda za crvena polja */
+      .legend-disabled {
+         background: #f8d7da;
+      }
+
       @media (max-width: 768px) {
          .header h1 {
             font-size: 2em;
@@ -195,17 +234,21 @@
    <div class="container">
       <div class="header">
          <h1>📿 Raspored Otajstava</h1>
-         <p>Rujan 2025 - Kliknite na ćeliju za upis/brisanje</p>
+         <p>Rujan 2025 - Kliknite na polje za unos/brisanje</p>
       </div>
 
       <div class="legend">
          <div class="legend-item">
             <div class="legend-color legend-free"></div>
-            <span>Slobodno mjesto</span>
+            <span>Slobodan termin</span>
          </div>
          <div class="legend-item">
             <div class="legend-color legend-taken"></div>
-            <span>Zauzeto mjesto</span>
+            <span>Popunjen termin</span>
+         </div>
+         <div class="legend-item">
+            <div class="legend-color legend-disabled"></div>
+            <span>Onemogućen unos (nedjelje)</span>
          </div>
       </div>
 
@@ -220,6 +263,7 @@
                   <th>ŽALOSNA OTAJSTVA</th>
                   <th>SLAVNA OTAJSTVA</th>
                   <th>OTAJSTVA SVJETLA</th>
+                  <th>POST</th>
                </tr>
             </thead>
             <tbody id="table-body">
@@ -232,7 +276,7 @@
       // JSONBin.io konfiguracija - postavite svoje podatke
       const JSONBIN_CONFIG = {
          binId: '68b44f0dd0ea881f406cfd4e', // Vaš bin ID
-         accessKey: '$2a$10$I2wEmhX.DPtBALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key (uklonjen razmak)
+         accessKey: '$2a$10$I2wEmhX.DPtBALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key
          baseUrl: 'https://api.jsonbin.io/v3'
       };
 
@@ -270,8 +314,11 @@
          { date: 'utorak 30.9.', day: 'utorak' }
       ];
 
-      const categories = ['radosna', 'zalosna', 'slavna', 'svjetla'];
+      const categories = ['radosna', 'zalosna', 'slavna', 'svjetla', 'post'];
       let scheduleData = {};
+
+      // ✅ Nedjelje za koje je POST onemogućen
+      const disabledPostDates = ['nedjelja 7.9.', 'nedjelja 14.9.', 'nedjelja 21.9.', 'nedjelja 28.9.'];
 
       // Inicijalizacija praznih podataka
       function initializeData() {
@@ -280,7 +327,8 @@
                radosna: '',
                zalosna: '',
                slavna: '',
-               svjetla: ''
+               svjetla: '',
+               post: ''
             };
          });
       }
@@ -329,8 +377,13 @@
                         radosna: '',
                         zalosna: '',
                         slavna: '',
-                        svjetla: ''
+                        svjetla: '',
+                        post: ''
                      };
+                  }
+                  // ✅ Dodaj post ako ne postoji
+                  if (!scheduleData[dateObj.date].hasOwnProperty('post')) {
+                     scheduleData[dateObj.date].post = '';
                   }
                });
                showStatus('Podaci uspješno učitani s clouda!', 'success');
@@ -397,9 +450,27 @@
             categories.forEach(category => {
                const cell = document.createElement('td');
                const value = scheduleData[dateObj.date][category] || '';
-               cell.textContent = value;
-               cell.className = value ? 'data-cell filled' : 'data-cell';
-               cell.onclick = () => editCell(dateObj.date, category, cell);
+
+               // ✅ Posebno tretiranje POST stupca
+               if (category === 'post') {
+                  if (disabledPostDates.includes(dateObj.date)) {
+                     // Crvena polja za nedjelje - onemogućena
+                     cell.textContent = 'NED';
+                     cell.className = 'post-cell disabled';
+                     cell.onclick = null; // Onemogući klik
+                  } else {
+                     // Normalna POST polja
+                     cell.textContent = value;
+                     cell.className = value ? 'post-cell filled' : 'post-cell';
+                     cell.onclick = () => editCell(dateObj.date, category, cell);
+                  }
+               } else {
+                  // Ostale kategorije
+                  cell.textContent = value;
+                  cell.className = value ? 'data-cell filled' : 'data-cell';
+                  cell.onclick = () => editCell(dateObj.date, category, cell);
+               }
+
                row.appendChild(cell);
             });
 
@@ -409,16 +480,29 @@
 
       // Editiranje ćelije
       function editCell(date, category, cellElement) {
+         // ✅ Provjeri da li je POST polje onemogućeno
+         if (category === 'post' && disabledPostDates.includes(date)) {
+            return; // Ne radi ništa za onemogućena polja
+         }
+
          const currentValue = scheduleData[date][category] || '';
+         const categoryName = category === 'post' ? 'POST' : `${category.toUpperCase()} OTAJSTVA`;
+
          const newValue = prompt(
-            `${date} - ${category.toUpperCase()} OTAJSTVA\n\nUnesite ime (ili ostavite prazno za brisanje):`,
+            `${date} - ${categoryName}\n\nUnesite ime (ili ostavite prazno za brisanje):`,
             currentValue
          );
 
          if (newValue !== null) {
             scheduleData[date][category] = newValue.trim();
             cellElement.textContent = newValue.trim();
-            cellElement.className = newValue.trim() ? 'data-cell filled' : 'data-cell';
+
+            if (category === 'post') {
+               cellElement.className = newValue.trim() ? 'post-cell filled' : 'post-cell';
+            } else {
+               cellElement.className = newValue.trim() ? 'data-cell filled' : 'data-cell';
+            }
+
             saveData();
          }
       }
