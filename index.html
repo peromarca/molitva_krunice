@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="hr">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Raspored Otajstava - Rujan 2025</title>
+   <style>
+      * {
+         margin: 0;
+         padding: 0;
+         box-sizing: border-box;
+      }
+
+      body {
+         font-family: 'Arial', sans-serif;
+         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+         min-height: 100vh;
+         padding: 20px;
+      }
+
+      .container {
+         max-width: 1200px;
+         margin: 0 auto;
+         background: white;
+         border-radius: 15px;
+         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+         overflow: hidden;
+      }
+
+      .header {
+         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+         color: white;
+         text-align: center;
+         padding: 30px;
+      }
+
+      .header h1 {
+         font-size: 2.5em;
+         margin-bottom: 10px;
+         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .header p {
+         font-size: 1.2em;
+         opacity: 0.9;
+      }
+
+      .table-container {
+         padding: 30px;
+         overflow-x: auto;
+      }
+
+      table {
+         width: 100%;
+         border-collapse: collapse;
+         font-size: 14px;
+         margin-bottom: 20px;
+         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+         border-radius: 10px;
+         overflow: hidden;
+      }
+
+      th {
+         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+         color: white;
+         padding: 15px 10px;
+         text-align: center;
+         font-weight: bold;
+         font-size: 16px;
+         border: 1px solid #ddd;
+      }
+
+      td {
+         padding: 12px 8px;
+         text-align: center;
+         border: 1px solid #ddd;
+         cursor: pointer;
+         transition: all 0.3s ease;
+         min-height: 50px;
+         vertical-align: middle;
+      }
+
+      .date-cell {
+         background: #f8f9fa;
+         font-weight: bold;
+         cursor: default;
+         color: #495057;
+      }
+
+      .data-cell {
+         background: #fff5f5;
+         position: relative;
+      }
+
+      .data-cell:hover {
+         background: #e3f2fd;
+         transform: scale(1.02);
+      }
+
+      .data-cell.filled {
+         background: #d4edda;
+         color: #155724;
+         font-weight: bold;
+      }
+
+      .data-cell.filled:hover {
+         background: #c3e6cb;
+      }
+
+      .loading {
+         text-align: center;
+         padding: 40px;
+         font-size: 18px;
+         color: #666;
+      }
+
+      .status {
+         text-align: center;
+         padding: 10px;
+         margin: 20px;
+         border-radius: 5px;
+         font-weight: bold;
+      }
+
+      .status.success {
+         background: #d4edda;
+         color: #155724;
+         border: 1px solid #c3e6cb;
+      }
+
+      .status.error {
+         background: #f8d7da;
+         color: #721c24;
+         border: 1px solid #f5c6cb;
+      }
+
+      .legend {
+         display: flex;
+         justify-content: center;
+         gap: 30px;
+         margin: 20px 0;
+         flex-wrap: wrap;
+      }
+
+      .legend-item {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         font-size: 16px;
+      }
+
+      .legend-color {
+         width: 25px;
+         height: 25px;
+         border-radius: 5px;
+         border: 1px solid #ddd;
+      }
+
+      .legend-free {
+         background: #fff5f5;
+      }
+
+      .legend-taken {
+         background: #d4edda;
+      }
+
+      @media (max-width: 768px) {
+         .header h1 {
+            font-size: 2em;
+         }
+
+         .table-container {
+            padding: 15px;
+         }
+
+         table {
+            font-size: 12px;
+         }
+
+         th,
+         td {
+            padding: 8px 4px;
+         }
+
+         .legend {
+            flex-direction: column;
+            align-items: center;
+         }
+      }
+   </style>
+</head>
+
+<body>
+   <div class="container">
+      <div class="header">
+         <h1>📿 Raspored Otajstava</h1>
+         <p>Rujan 2025 - Kliknite na ćeliju za upis/brisanje</p>
+      </div>
+
+      <div class="legend">
+         <div class="legend-item">
+            <div class="legend-color legend-free"></div>
+            <span>Slobodno mjesto</span>
+         </div>
+         <div class="legend-item">
+            <div class="legend-color legend-taken"></div>
+            <span>Zauzeto mjesto</span>
+         </div>
+      </div>
+
+      <div class="table-container">
+         <div id="loading" class="loading">Učitavam podatke...</div>
+         <div id="status"></div>
+         <table id="schedule-table" style="display: none;">
+            <thead>
+               <tr>
+                  <th>Datum</th>
+                  <th>RADOSNA OTAJSTVA</th>
+                  <th>ŽALOSNA OTAJSTVA</th>
+                  <th>SLAVNA OTAJSTVA</th>
+                  <th>OTAJSTVA SVJETLA</th>
+               </tr>
+            </thead>
+            <tbody id="table-body">
+            </tbody>
+         </table>
+      </div>
+   </div>
+
+   <script>
+      // JSONBin.io konfiguracija - postavite svoje podatke
+      const JSONBIN_CONFIG = {
+         binId: '68b44f0dd0ea881f406cfd4e', // Vaš bin ID
+         accessKey: '$2a$10$I2wEmhX.DPtB ALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key
+         baseUrl: 'https://api.jsonbin.io/v3'
+      };
+
+      // Dani u mjesecu (rujan 2025)
+      const dates = [
+         { date: 'ponedjeljak 1.9.', day: 'ponedjeljak' },
+         { date: 'utorak 2.9.', day: 'utorak' },
+         { date: 'srijeda 3.9.', day: 'srijeda' },
+         { date: 'četvrtak 4.9.', day: 'četvrtak' },
+         { date: 'petak 5.9.', day: 'petak' },
+         { date: 'subota 6.9.', day: 'subota' },
+         { date: 'nedjelja 7.9.', day: 'nedjelja' },
+         { date: 'ponedjeljak 8.9.', day: 'ponedjeljak' },
+         { date: 'utorak 9.9.', day: 'utorak' },
+         { date: 'srijeda 10.9.', day: 'srijeda' },
+         { date: 'četvrtak 11.9.', day: 'četvrtak' },
+         { date: 'petak 12.9.', day: 'petak' },
+         { date: 'subota 13.9.', day: 'subota' },
+         { date: 'nedjelja 14.9.', day: 'nedjelja' },
+         { date: 'ponedjeljak 15.9.', day: 'ponedjeljak' },
+         { date: 'utorak 16.9.', day: 'utorak' },
+         { date: 'srijeda 17.9.', day: 'srijeda' },
+         { date: 'četvrtak 18.9.', day: 'četvrtak' },
+         { date: 'petak 19.9.', day: 'petak' },
+         { date: 'subota 20.9.', day: 'subota' },
+         { date: 'nedjelja 21.9.', day: 'nedjelja' },
+         { date: 'ponedjeljak 22.9.', day: 'ponedjeljak' },
+         { date: 'utorak 23.9.', day: 'utorak' },
+         { date: 'srijeda 24.9.', day: 'srijeda' },
+         { date: 'četvrtak 25.9.', day: 'četvrtak' },
+         { date: 'petak 26.9.', day: 'petak' },
+         { date: 'subota 27.9.', day: 'subota' },
+         { date: 'nedjelja 28.9.', day: 'nedjelja' },
+         { date: 'ponedjeljak 29.9.', day: 'ponedjeljak' },
+         { date: 'utorak 30.9.', day: 'utorak' }
+      ];
+
+      const categories = ['radosna', 'zalosna', 'slavna', 'svjetla'];
+      let scheduleData = {};
+
+      // Inicijalizacija praznih podataka
+      function initializeData() {
+         dates.forEach(dateObj => {
+            scheduleData[dateObj.date] = {
+               radosna: '',
+               zalosna: '',
+               slavna: '',
+               svjetla: ''
+            };
+         });
+      }
+
+      // Prikaz poruke
+      function showStatus(message, type = 'success') {
+         const statusDiv = document.getElementById('status');
+         statusDiv.textContent = message;
+         statusDiv.className = `status ${type}`;
+         setTimeout(() => {
+            statusDiv.textContent = '';
+            statusDiv.className = '';
+         }, 3000);
+      }
+
+      // Učitavanje podataka s JSONBin.io
+      async function loadData() {
+         try {
+            if (!JSONBIN_CONFIG.binId || JSONBIN_CONFIG.binId === 'YOUR_BIN_ID_HERE') {
+               console.log('JSONBin.io nije konfiguriran, koristim lokalne podatke');
+               initializeData();
+               renderTable();
+               document.getElementById('loading').style.display = 'none';
+               document.getElementById('schedule-table').style.display = 'table';
+               return;
+            }
+
+            const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${JSONBIN_CONFIG.binId}/latest`, {
+               headers: {
+                  'X-Access-Key': JSONBIN_CONFIG.accessKey
+               }
+            });
+
+            if (response.ok) {
+               const data = await response.json();
+               scheduleData = data.record || {};
+
+               // Provjeri da li su svi datumi prisutni
+               dates.forEach(dateObj => {
+                  if (!scheduleData[dateObj.date]) {
+                     scheduleData[dateObj.date] = {
+                        radosna: '',
+                        zalosna: '',
+                        slavna: '',
+                        svjetla: ''
+                     };
+                  }
+               });
+            } else {
+               throw new Error('Greška pri učitavanju podataka');
+            }
+         } catch (error) {
+            console.error('Greška:', error);
+            initializeData();
+            showStatus('Greška pri učitavanju. Koristim lokalne podatke.', 'error');
+         }
+
+         renderTable();
+         document.getElementById('loading').style.display = 'none';
+         document.getElementById('schedule-table').style.display = 'table';
+      }
+
+      // Spremanje podataka na JSONBin.io
+      async function saveData() {
+         try {
+            if (!JSONBIN_CONFIG.binId || JSONBIN_CONFIG.binId === 'YOUR_BIN_ID_HERE') {
+               console.log('JSONBin.io nije konfiguriran');
+               showStatus('Podaci spremljeni lokalno', 'success');
+               return;
+            }
+
+            const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${JSONBIN_CONFIG.binId}`, {
+               method: 'PUT',
+               headers: {
+                  'Content-Type': 'application/json',
+                  'X-Access-Key': JSONBIN_CONFIG.accessKey
+               },
+               body: JSON.stringify(scheduleData)
+            });
+
+            if (response.ok) {
+               showStatus('Podaci uspješno spremljeni!', 'success');
+            } else {
+               throw new Error('Greška pri spremanju');
+            }
+         } catch (error) {
+            console.error('Greška pri spremanju:', error);
+            showStatus('Greška pri spremanju podataka', 'error');
+         }
+      }
+
+      // Kreiranje tablice
+      function renderTable() {
+         const tbody = document.getElementById('table-body');
+         tbody.innerHTML = '';
+
+         dates.forEach(dateObj => {
+            const row = document.createElement('tr');
+
+            // Datum
+            const dateCell = document.createElement('td');
+            dateCell.textContent = dateObj.date;
+            dateCell.className = 'date-cell';
+            row.appendChild(dateCell);
+
+            // Kategorije otajstava
+            categories.forEach(category => {
+               const cell = document.createElement('td');
+               const value = scheduleData[dateObj.date][category] || '';
+               cell.textContent = value;
+               cell.className = value ? 'data-cell filled' : 'data-cell';
+               cell.onclick = () => editCell(dateObj.date, category, cell);
+               row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+         });
+      }
+
+      // Editiranje ćelije
+      function editCell(date, category, cellElement) {
+         const currentValue = scheduleData[date][category] || '';
+         const newValue = prompt(
+            `${date} - ${category.toUpperCase()} OTAJSTVA\n\nUnesite ime (ili ostavite prazno za brisanje):`,
+            currentValue
+         );
+
+         if (newValue !== null) {
+            scheduleData[date][category] = newValue.trim();
+            cellElement.textContent = newValue.trim();
+            cellElement.className = newValue.trim() ? 'data-cell filled' : 'data-cell';
+            saveData();
+         }
+      }
+
+      // Pokretanje aplikacije
+      document.addEventListener('DOMContentLoaded', () => {
+         loadData();
+      });
+   </script>
+</body>
+
+</html>
