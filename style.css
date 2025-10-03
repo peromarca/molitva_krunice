@@ -261,6 +261,11 @@ td {
    animation: blink 2s infinite;
 }
 
+/* Sakrij mobile scroll hint na desktop */
+.mobile-scroll-hint {
+   display: none;
+}
+
 @media (max-width: 768px) {
    .header h1 {
       font-size: 2.2em;
@@ -289,35 +294,38 @@ td {
 
    .table-container {
       padding: 10px 5px;
-      overflow-x: visible;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
    }
 
    table {
-      font-size: 9px;
-      width: 100%;
-      table-layout: fixed;
+      font-size: 12px;
+      width: 800px;
+      min-width: 800px;
+      table-layout: auto;
    }
 
    th,
    td {
-      padding: 4px 2px;
-      font-size: 8px;
-      line-height: 1.1;
+      padding: 8px 4px;
+      font-size: 11px;
+      line-height: 1.2;
       word-wrap: break-word;
       hyphens: auto;
+      white-space: nowrap;
    }
 
    th {
-      font-size: 9px;
-      padding: 6px 2px;
+      font-size: 12px;
+      padding: 10px 4px;
    }
 
    .date-cell {
-      font-size: 8px;
-      width: 15%;
+      font-size: 11px;
+      min-width: 80px;
    }
 
-   /* Kolone za otajstva */
+   /* Kolone za otajstva - uklanjam fixed width */
    th:nth-child(2),
    td:nth-child(2),
    th:nth-child(3),
@@ -326,13 +334,13 @@ td {
    td:nth-child(4),
    th:nth-child(5),
    td:nth-child(5) {
-      width: 17%;
+      min-width: 120px;
    }
 
    /* POST kolona */
    th:nth-child(6),
    td:nth-child(6) {
-      width: 12%;
+      min-width: 80px;
    }
 
    .legend {
@@ -358,5 +366,29 @@ td {
       border-radius: 3px;
       border: 1px solid #ddd;
       flex-shrink: 0;
+   }
+
+   .mobile-scroll-hint {
+      display: block !important;
+      font-size: 11px;
+      color: #1976d2;
+      margin-top: 5px;
+      font-weight: 600;
+   }
+}
+
+/* Mobile scroll hint - hidden by default */
+.mobile-scroll-hint {
+   display: none;
+}
+
+/* Show mobile hint on smaller screens */
+@media screen and (max-width: 900px) {
+   .mobile-scroll-hint {
+      display: block !important;
+      font-size: 11px;
+      color: #1976d2;
+      margin-top: 5px;
+      font-weight: 600;
    }
 }
