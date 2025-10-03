@@ -79,9 +79,10 @@ body {
 }
 
 table {
-   width: 100%;
+   width: 1200px;
+   min-width: 1200px;
    border-collapse: collapse;
-   font-size: 14px;
+   font-size: 16px;
    margin-bottom: 20px;
    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
    border-radius: 10px;
@@ -91,22 +92,22 @@ table {
 th {
    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
    color: white;
-   padding: 15px 10px;
+   padding: 20px 15px;
    text-align: center;
    font-weight: bold;
-   font-size: 16px;
+   font-size: 18px;
    border: 1px solid #ddd;
-
 }
 
 td {
-   padding: 12px 8px;
+   padding: 18px 12px;
    text-align: center;
    border: 1px solid #ddd;
    cursor: pointer;
    transition: all 0.3s ease;
-   min-height: 50px;
+   min-height: 60px;
    vertical-align: middle;
+   font-size: 16px;
 }
 
 .date-cell {
@@ -114,13 +115,6 @@ td {
    font-weight: bold;
    cursor: default;
    color: #495057;
-}
-
-/* ✅ Novi stilovi za prošle datume - žuta boja */
-.date-cell.past {
-   background: #fff3cd !important;
-   color: #856404;
-   border-left: 4px solid #ffc107;
 }
 
 /* ✅ Stilovi za trenutni datum - blinkanje */
@@ -199,19 +193,6 @@ td {
    transform: none;
 }
 
-/* ✅ Žuti stilovi za prošle datume u ostalim poljima */
-.data-cell.past,
-.post-cell.past {
-   background: #fff3cd !important;
-   color: #856404;
-}
-
-.data-cell.past.filled,
-.post-cell.past.filled {
-   background: #f0e68c !important;
-   color: #333;
-}
-
 .loading {
    text-align: center;
    padding: 40px;
@@ -272,11 +253,6 @@ td {
 /* ✅ Nova legenda za crvena polja */
 .legend-disabled {
    background: #f8d7da;
-}
-
-/* ✅ Nova legenda za žuta polja (prošli datumi) */
-.legend-past {
-   background: #fff3cd;
 }
 
 /* ✅ Nova legenda za trenutni datum */
