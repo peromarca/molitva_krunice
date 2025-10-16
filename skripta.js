@@ -1,8 +1,18 @@
-// JSONBin.io konfiguracija - postavite svoje podatke
+// Multi-bin JSONBin.io konfiguracija za redundanciju
 const JSONBIN_CONFIG = {
-   binId: '68dc0107ae596e708f0161d5', // Novi bin ID za oktobar
-   accessKey: '$2a$10$I2wEmhX.DPtBALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy', // Vaš access key
-   baseUrl: 'https://api.jsonbin.io/v3'
+   accessKey: '$2a$10$I2wEmhX.DPtBALkQ3TcdI.bhy4ZOoAChjdbTzPP/XAsNao5M7CjVy',
+   baseUrl: 'https://api.jsonbin.io/v3',
+   bins: {
+      primary: '68dc0107ae596e708f0161d5',   // Bin 1 - glavni
+      backup1: '68f0d752ae596e708f16e152',   // Bin 2 - backup
+      backup2: '68f0d77fae596e708f16e1a5',   // Bin 3 - backup
+      auditLog: '68f0da3d43b1c97be96b2c13'   // Bin 4 - audit log
+   }
+};
+
+// Admin konfiguracija
+const ADMIN_CONFIG = {
+   code: 'molitva2025'
 };
 
 // Dani u mjesecu (oktobar 2025)
@@ -88,6 +98,97 @@ function initializeData() {
    });
 }
 
+// Helper funkcije za multi-bin rad
+async function loadFromBin(binId) {
+   try {
+      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${binId}/latest`, {
+         headers: {
+            'X-Access-Key': JSONBIN_CONFIG.accessKey
+         }
+      });
+
+      if (response.ok) {
+         const data = await response.json();
+         return data.record || {};
+      }
+      return null;
+   } catch (error) {
+      console.log(`Greška pri učitavanju iz bin ${binId}:`, error);
+      return null;
+   }
+}
+
+async function saveToBin(binId, data) {
+   try {
+      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${binId}`, {
+         method: 'PUT',
+         headers: {
+            'Content-Type': 'application/json',
+            'X-Access-Key': JSONBIN_CONFIG.accessKey
+         },
+         body: JSON.stringify(data)
+      });
+
+      return response.ok;
+   } catch (error) {
+      console.log(`Greška pri spremanju u bin ${binId}:`, error);
+      return false;
+   }
+}
+
+async function logToAudit(datum, kategorija, vrijednost) {
+   try {
+      const timestamp = new Date().toISOString().replace('T', '_').substring(0, 16);
+      const logEntry = {
+         [timestamp]: {
+            datum: datum,
+            kategorija: kategorija,
+            vrijednost: vrijednost,
+            akcija: 'dodao'
+         }
+      };
+
+      // Učitaj postojeći log
+      const existingLog = await loadFromBin(JSONBIN_CONFIG.bins.auditLog) || {};
+
+      // Dodaj novi unos
+      const updatedLog = { ...existingLog, ...logEntry };
+
+      // Spremi nazad
+      await saveToBin(JSONBIN_CONFIG.bins.auditLog, updatedLog);
+   } catch (error) {
+      console.log('Greška pri logiranju:', error);
+   }
+}
+
+// Lokalni backup funkcije
+function saveLocalBackup() {
+   try {
+      localStorage.setItem('molitva_krunice_backup', JSON.stringify({
+         data: scheduleData,
+         timestamp: new Date().toISOString(),
+         version: '1.0'
+      }));
+      console.log('Lokalni backup spremljen');
+   } catch (error) {
+      console.error('Greška pri spremanju lokalnog backup-a:', error);
+   }
+}
+
+function loadLocalBackup() {
+   try {
+      const backup = localStorage.getItem('molitva_krunice_backup');
+      if (backup) {
+         const backupData = JSON.parse(backup);
+         console.log('Lokalni backup pronađen:', backupData.timestamp);
+         return backupData.data;
+      }
+   } catch (error) {
+      console.error('Greška pri učitavanju lokalnog backup-a:', error);
+   }
+   return null;
+}
+
 // Prikaz poruke
 function showStatus(message, type = 'success') {
    const statusDiv = document.getElementById('status');
@@ -99,88 +200,115 @@ function showStatus(message, type = 'success') {
    }, 3000);
 }
 
-// Učitavanje podataka s JSONBin.io
+// Multi-bin učitavanje podataka
 async function loadData() {
    try {
-      if (!JSONBIN_CONFIG.binId || JSONBIN_CONFIG.binId === 'YOUR_BIN_ID_HERE') {
-         console.log('JSONBin.io nije konfiguriran, koristim lokalne podatke');
-         initializeData();
-         renderTable();
-         document.getElementById('loading').style.display = 'none';
-         document.getElementById('schedule-table').style.display = 'table';
-         return;
-      }
+      console.log('Pokušavam učitati podatke s multi-bin sustava...');
 
-      console.log('Pokušavam učitati podatke s JSONBin.io...');
-      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${JSONBIN_CONFIG.binId}/latest`, {
-         headers: {
-            'X-Access-Key': JSONBIN_CONFIG.accessKey
+      const binIds = [
+         JSONBIN_CONFIG.bins.primary,
+         JSONBIN_CONFIG.bins.backup1,
+         JSONBIN_CONFIG.bins.backup2
+      ];
+
+      let successfulBins = 0;
+      let loadedData = null;
+
+      // Pokušaj učitati iz svih binova
+      for (let i = 0; i < binIds.length; i++) {
+         const data = await loadFromBin(binIds[i]);
+         if (data && Object.keys(data).length > 0) {
+            successfulBins++;
+            if (!loadedData) {
+               loadedData = data; // Koristi podatke iz prvog uspješnog bina
+            }
          }
-      });
-
-      console.log('Response status:', response.status);
-
-      if (response.ok) {
-         const data = await response.json();
-         scheduleData = data.record || {};
-         console.log('Podaci uspješno učitani:', scheduleData);
-
-         // Provjeri da li su svi datumi prisutni
-         dates.forEach(dateObj => {
-            if (!scheduleData[dateObj.date]) {
-               scheduleData[dateObj.date] = {
-                  radosna: '',
-                  zalosna: '',
-                  slavna: '',
-                  svjetla: '',
-                  post: ''
-               };
-            }
-            // ✅ Dodaj post ako ne postoji
-            if (!scheduleData[dateObj.date].hasOwnProperty('post')) {
-               scheduleData[dateObj.date].post = '';
-            }
-         });
-         showStatus('Podaci uspješno učitani s clouda!', 'success');
-      } else {
-         const errorText = await response.text();
-         console.error('API Error:', response.status, errorText);
-         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
+
+      // Odredi status poruku
+      if (successfulBins === 3) {
+         showStatus('Svi podatci uspješno učitani', 'success');
+         scheduleData = loadedData;
+      } else if (successfulBins > 0) {
+         showStatus('Podatci učitani', 'warning');
+         scheduleData = loadedData;
+      } else {
+         // Pokušaj lokalni backup
+         const localData = loadLocalBackup();
+         if (localData) {
+            showStatus('Neuspješno učitavanje → uzimam lokalno', 'warning');
+            scheduleData = localData;
+         } else {
+            showStatus('Neuspješno učitavanje → kreiranje praznih podataka', 'error');
+            initializeData();
+         }
+      }
+
    } catch (error) {
-      console.error('Greška:', error);
-      initializeData();
-      showStatus(`Greška: ${error.message}. Koristim lokalne podatke.`, 'error');
+      console.error('Greška pri učitavanju:', error);
+      const localData = loadLocalBackup();
+      if (localData) {
+         showStatus('Neuspješno učitavanje → uzimam lokalno', 'warning');
+         scheduleData = localData;
+      } else {
+         showStatus('Greška: kreiranje praznih podataka', 'error');
+         initializeData();
+      }
    }
+
+   // Provjeri da li su svi datumi prisutni
+   dates.forEach(dateObj => {
+      if (!scheduleData[dateObj.date]) {
+         scheduleData[dateObj.date] = {
+            radosna: '',
+            zalosna: '',
+            slavna: '',
+            svjetla: '',
+            post: ''
+         };
+      }
+      // ✅ Dodaj post ako ne postoji
+      if (!scheduleData[dateObj.date].hasOwnProperty('post')) {
+         scheduleData[dateObj.date].post = '';
+      }
+   });
 
    renderTable();
    document.getElementById('loading').style.display = 'none';
    document.getElementById('schedule-table').style.display = 'table';
 }
 
-// Spremanje podataka na JSONBin.io
+// Multi-bin spremanje podataka
 async function saveData() {
+   // Spremi lokalni backup uvijek
+   saveLocalBackup();
+
    try {
-      if (!JSONBIN_CONFIG.binId || JSONBIN_CONFIG.binId === 'YOUR_BIN_ID_HERE') {
-         console.log('JSONBin.io nije konfiguriran');
-         showStatus('Podaci spremljeni lokalno', 'success');
-         return;
-      }
+      console.log('Pokušavam spremiti podatke u multi-bin sustav...');
 
-      const response = await fetch(`${JSONBIN_CONFIG.baseUrl}/b/${JSONBIN_CONFIG.binId}`, {
-         method: 'PUT',
-         headers: {
-            'Content-Type': 'application/json',
-            'X-Access-Key': JSONBIN_CONFIG.accessKey
-         },
-         body: JSON.stringify(scheduleData)
-      });
+      const binIds = [
+         JSONBIN_CONFIG.bins.primary,
+         JSONBIN_CONFIG.bins.backup1,
+         JSONBIN_CONFIG.bins.backup2
+      ];
 
-      if (response.ok) {
-         showStatus('Podaci uspješno spremljeni!', 'success');
+      // Pokušaj spremiti u sve binove paralelno
+      const savePromises = binIds.map(binId => saveToBin(binId, scheduleData));
+      const results = await Promise.all(savePromises);
+
+      // Broji uspješne binove
+      const successfulSaves = results.filter(result => result === true).length;
+
+      if (successfulSaves === 3) {
+         showStatus('Uspješno poslano', 'success');
+      } else if (successfulSaves >= 2) {
+         showStatus('Podatci uploadani na cloud', 'warning');
       } else {
-         throw new Error('Greška pri spremanju');
+         showStatus('Greška pri spremanju na cloud', 'error');
       }
+
+      console.log(`Uspješno spremljeno u ${successfulSaves}/3 binova`);
+
    } catch (error) {
       console.error('Greška pri spremanju:', error);
       showStatus('Greška pri spremanju podataka', 'error');
@@ -255,7 +383,7 @@ function renderTable() {
    });
 }
 
-// Editiranje ćelije
+// Editiranje ćelije s admin zaštitom i potvrdom
 function editCell(date, category, cellElement) {
    // ✅ Provjeri da li je POST polje onemogućeno
    if (category === 'post' && disabledPostDates.includes(date)) {
@@ -265,12 +393,33 @@ function editCell(date, category, cellElement) {
    const currentValue = scheduleData[date][category] || '';
    const categoryName = category === 'post' ? 'POST' : `${category.toUpperCase()} OTAJSTVA`;
 
+   // Provjeri da li korisnik pokušava obrisati (admin zaštita)
+   if (currentValue && currentValue.trim() !== '') {
+      const adminCode = prompt(
+         `${date} - ${categoryName}\n\nZa brisanje postojećeg unosa trebate admin kod:`,
+         ''
+      );
+
+      if (adminCode !== ADMIN_CONFIG.code) {
+         showStatus('Neispravan admin kod! Brisanje nije dozvoljeno.', 'error');
+         return;
+      }
+   }
+
    const newValue = prompt(
       `${date} - ${categoryName}\n\nUnesite ime (ili ostavite prazno za brisanje):`,
       currentValue
    );
 
    if (newValue !== null) {
+      // Potvrda unosa (samo za dodavanje imena)
+      if (newValue.trim() !== '') {
+         const confirmation = confirm('Jeste li sigurni da se želite upisati?');
+         if (!confirmation) {
+            return; // Odustani ako korisnik ne potvrdi
+         }
+      }
+
       scheduleData[date][category] = newValue.trim();
       cellElement.textContent = newValue.trim();
 
@@ -288,6 +437,11 @@ function editCell(date, category, cellElement) {
          cellElement.className = cellClass;
       }
 
+      // Log samo dodavanja (ne brisanja)
+      if (newValue.trim() !== '') {
+         logToAudit(date, category, newValue.trim());
+      }
+
       saveData();
    }
 }
@@ -296,3 +450,47 @@ function editCell(date, category, cellElement) {
 document.addEventListener('DOMContentLoaded', () => {
    loadData();
 });
+
+// Admin funkcionalnost
+function showAdminInfo() {
+   // Zatraži admin kod prije prikaza informacija
+   const enteredCode = prompt('Unesite admin kod za pristup informacijama:');
+
+   if (enteredCode !== ADMIN_CONFIG.code) {
+      if (enteredCode !== null) { // Samo ako nije kliknuo Cancel
+         showStatus('Neispravan admin kod!', 'error');
+      }
+      return;
+   }
+
+   // Prikaži admin informacije samo ako je kod točan
+   const info = `
+🔧 ADMIN INFORMACIJE
+
+📊 Multi-bin sustav:
+• Bin 1 (primary): ${JSONBIN_CONFIG.bins.primary}
+• Bin 2 (backup): ${JSONBIN_CONFIG.bins.backup1}  
+• Bin 3 (backup): ${JSONBIN_CONFIG.bins.backup2}
+• Bin 4 (audit log): ${JSONBIN_CONFIG.bins.auditLog}
+
+🔐 Admin kod: ${ADMIN_CONFIG.code}
+
+📝 Funkcionalnosti:
+• Brisanje postojećih unosa - zahtijeva admin kod
+• Dodavanje novih unosa - potvrda "Jeste li sigurni?"
+• Automatski backup u 3 bina
+• Audit log svih dodavanja
+
+⚙️ Status poredaka:
+• Svi podatci uspješno učitani = sva 3 bina OK
+• Podatci učitani = 1-2 bina OK  
+• Neuspješno učitavanje = koristim lokalne podatke
+
+📡 Status spremanja:
+• Uspješno poslano = sva 3 bina OK
+• Podatci uploadani na cloud = 2+ bina OK
+   `;
+
+   alert(info);
+   showStatus('Admin informacije prikazane', 'success');
+}
