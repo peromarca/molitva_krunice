@@ -200,7 +200,46 @@ function showStatus(message, type = 'success') {
    }, 3000);
 }
 
-// Multi-bin učitavanje podataka
+// Funkcija za kombinovanje podataka iz više binova sa fallback logikom
+function combineDataWithFallback(allBinData) {
+   console.log('Kombinujem podatke iz binova sa fallback logikom...');
+
+   // Inicijalizuj prazan objekat za konačne podatke
+   const combinedData = {};
+
+   // Za svaki datum
+   dates.forEach(dateObj => {
+      const dateKey = dateObj.date;
+      combinedData[dateKey] = {};
+
+      // Za svaku kategoriju
+      categories.forEach(category => {
+         let foundValue = '';
+
+         // Pretraži binove po redosledu prioriteta (bin 1, bin 2, bin 3)
+         for (let i = 0; i < allBinData.length; i++) {
+            const binData = allBinData[i];
+
+            // Proveri da li bin ima podatke i da li sadrži ovaj datum i kategoriju
+            if (binData &&
+               binData[dateKey] &&
+               binData[dateKey][category] &&
+               binData[dateKey][category].trim() !== '') {
+
+               foundValue = binData[dateKey][category];
+               console.log(`${dateKey} - ${category}: uzeto iz bin ${i + 1} (${foundValue})`);
+               break; // Prekini pretragu kada nađeš vrednost
+            }
+         }
+
+         combinedData[dateKey][category] = foundValue;
+      });
+   });
+
+   return combinedData;
+}
+
+// Multi-bin učitavanje podataka sa fallback logikom
 async function loadData() {
    try {
       console.log('Pokušavam učitati podatke s multi-bin sustava...');
@@ -212,26 +251,30 @@ async function loadData() {
       ];
 
       let successfulBins = 0;
-      let loadedData = null;
+      let allBinData = [];
 
       // Pokušaj učitati iz svih binova
       for (let i = 0; i < binIds.length; i++) {
          const data = await loadFromBin(binIds[i]);
          if (data && Object.keys(data).length > 0) {
             successfulBins++;
-            if (!loadedData) {
-               loadedData = data; // Koristi podatke iz prvog uspješnog bina
-            }
+            allBinData.push(data);
+            console.log(`Uspešno učitano iz bin ${i + 1}`);
+         } else {
+            allBinData.push(null);
+            console.log(`Neuspešno učitavanje iz bin ${i + 1}`);
          }
       }
 
-      // Odredi status poruku
-      if (successfulBins === 3) {
-         showStatus('Svi podatci uspješno učitani', 'success');
-         scheduleData = loadedData;
-      } else if (successfulBins > 0) {
-         showStatus('Podatci učitani', 'warning');
-         scheduleData = loadedData;
+      // Kombinuj podatke sa fallback logikom
+      if (successfulBins > 0) {
+         scheduleData = combineDataWithFallback(allBinData);
+
+         if (successfulBins === 3) {
+            showStatus('Svi podatci uspješno učitani', 'success');
+         } else {
+            showStatus(`Podatci učitani iz ${successfulBins}/3 binova`, 'warning');
+         }
       } else {
          // Pokušaj lokalni backup
          const localData = loadLocalBackup();
@@ -312,6 +355,140 @@ async function saveData() {
    } catch (error) {
       console.error('Greška pri spremanju:', error);
       showStatus('Greška pri spremanju podataka', 'error');
+   }
+}
+
+// Repair funkcija za sinhronizaciju binova
+async function repairBins() {
+   // Admin provjera
+   const adminCode = prompt('Za repair funkciju trebate admin kod:', '');
+   if (adminCode !== ADMIN_CONFIG.code) {
+      showStatus('Neispravka admin kod', 'error');
+      return;
+   }
+
+   try {
+      showStatus('Počinje repair funkcija...', 'info');
+      console.log('=== REPAIR BINOVA - POČETAK ===');
+
+      const binIds = [
+         JSONBIN_CONFIG.bins.primary,
+         JSONBIN_CONFIG.bins.backup1,
+         JSONBIN_CONFIG.bins.backup2
+      ];
+
+      // 1. Učitaj podatke iz svih binova
+      console.log('Učitavanje podataka iz svih binova...');
+      let allBinData = [];
+      let loadedBins = 0;
+
+      for (let i = 0; i < binIds.length; i++) {
+         const data = await loadFromBin(binIds[i]);
+         if (data && Object.keys(data).length > 0) {
+            allBinData.push(data);
+            loadedBins++;
+            console.log(`✓ Bin ${i + 1}: učitano ${Object.keys(data).length} datuma`);
+         } else {
+            allBinData.push({});
+            console.log(`✗ Bin ${i + 1}: prazan ili neuspešno učitano`);
+         }
+      }
+
+      if (loadedBins === 0) {
+         showStatus('Nema podataka za repair', 'error');
+         return;
+      }
+
+      // 2. Kreiraj kompletne podatke za svaki bin koristeći fallback logiku
+      console.log('Kreiranje kompletnih podataka za svaki bin...');
+      let repairedBins = [];
+      let totalRepairs = 0;
+
+      for (let binIndex = 0; binIndex < binIds.length; binIndex++) {
+         let repairedData = {};
+         let repairsForThisBin = 0;
+
+         // Za svaki datum
+         dates.forEach(dateObj => {
+            const dateKey = dateObj.date;
+            repairedData[dateKey] = {};
+
+            // Za svaku kategoriju
+            categories.forEach(category => {
+               let foundValue = '';
+               let sourceDescription = '';
+
+               // Prvo provjeri da li trenutni bin već ima podatak
+               if (allBinData[binIndex] &&
+                  allBinData[binIndex][dateKey] &&
+                  allBinData[binIndex][dateKey][category] &&
+                  allBinData[binIndex][dateKey][category].trim() !== '') {
+
+                  foundValue = allBinData[binIndex][dateKey][category];
+                  sourceDescription = `već ima`;
+               } else {
+                  // Traži podatak u drugim binovima
+                  for (let sourceIndex = 0; sourceIndex < allBinData.length; sourceIndex++) {
+                     if (sourceIndex === binIndex) continue; // Preskoči sam sebe
+
+                     const sourceBinData = allBinData[sourceIndex];
+                     if (sourceBinData &&
+                        sourceBinData[dateKey] &&
+                        sourceBinData[dateKey][category] &&
+                        sourceBinData[dateKey][category].trim() !== '') {
+
+                        foundValue = sourceBinData[dateKey][category];
+                        sourceDescription = `dopunjeno iz bin ${sourceIndex + 1}`;
+                        repairsForThisBin++;
+                        totalRepairs++;
+                        console.log(`  ↗ Bin ${binIndex + 1}: ${dateKey} - ${category} = "${foundValue}" (${sourceDescription})`);
+                        break;
+                     }
+                  }
+               }
+
+               repairedData[dateKey][category] = foundValue;
+            });
+         });
+
+         repairedBins.push(repairedData);
+         console.log(`✓ Bin ${binIndex + 1}: ${repairsForThisBin} polja dopunjeno`);
+      }
+
+      // 3. Spremi popravljene podatke u sve binove
+      console.log('Spremanje popravljenih podataka...');
+      let savedBins = 0;
+
+      for (let i = 0; i < binIds.length; i++) {
+         const success = await saveToBin(binIds[i], repairedBins[i]);
+         if (success) {
+            savedBins++;
+            console.log(`✓ Bin ${i + 1}: uspešno spremljeno`);
+         } else {
+            console.log(`✗ Bin ${i + 1}: greška pri spremanju`);
+         }
+      }
+
+      // 4. Prikaži rezultate
+      if (savedBins === binIds.length) {
+         showStatus(`Repair uspješan: ${totalRepairs} polja popunjeno u ${savedBins} binova`, 'success');
+      } else if (savedBins > 0) {
+         showStatus(`Repair djelomičan: ${totalRepairs} polja popunjeno, ${savedBins}/${binIds.length} binova spremljeno`, 'warning');
+      } else {
+         showStatus('Repair neuspješan: greška pri spremanju', 'error');
+      }
+
+      console.log('=== REPAIR BINOVA - KRAJ ===');
+      console.log(`Ukupno: ${totalRepairs} polja dopunjeno u ${savedBins}/${binIds.length} binova`);
+
+      // 5. Učitaj podatke ponovno da prikažeš ažurirane podatke
+      if (savedBins > 0) {
+         await loadData();
+      }
+
+   } catch (error) {
+      console.error('Greška pri repair funkciji:', error);
+      showStatus('Greška pri repair funkciji', 'error');
    }
 }
 
