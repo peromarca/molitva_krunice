@@ -15,46 +15,63 @@ const ADMIN_CONFIG = {
    code: 'molitva2025'
 };
 
-// Dani u mjesecu (oktobar 2025)
-const dates = [
-   { date: 'srijeda 1.10.', day: 'srijeda', dateNum: 1 },
-   { date: 'četvrtak 2.10.', day: 'četvrtak', dateNum: 2 },
-   { date: 'petak 3.10.', day: 'petak', dateNum: 3 },
-   { date: 'subota 4.10.', day: 'subota', dateNum: 4 },
-   { date: 'nedjelja 5.10.', day: 'nedjelja', dateNum: 5 },
-   { date: 'ponedjeljak 6.10.', day: 'ponedjeljak', dateNum: 6 },
-   { date: 'utorak 7.10.', day: 'utorak', dateNum: 7 },
-   { date: 'srijeda 8.10.', day: 'srijeda', dateNum: 8 },
-   { date: 'četvrtak 9.10.', day: 'četvrtak', dateNum: 9 },
-   { date: 'petak 10.10.', day: 'petak', dateNum: 10 },
-   { date: 'subota 11.10.', day: 'subota', dateNum: 11 },
-   { date: 'nedjelja 12.10.', day: 'nedjelja', dateNum: 12 },
-   { date: 'ponedjeljak 13.10.', day: 'ponedjeljak', dateNum: 13 },
-   { date: 'utorak 14.10.', day: 'utorak', dateNum: 14 },
-   { date: 'srijeda 15.10.', day: 'srijeda', dateNum: 15 },
-   { date: 'četvrtak 16.10.', day: 'četvrtak', dateNum: 16 },
-   { date: 'petak 17.10.', day: 'petak', dateNum: 17 },
-   { date: 'subota 18.10.', day: 'subota', dateNum: 18 },
-   { date: 'nedjelja 19.10.', day: 'nedjelja', dateNum: 19 },
-   { date: 'ponedjeljak 20.10.', day: 'ponedjeljak', dateNum: 20 },
-   { date: 'utorak 21.10.', day: 'utorak', dateNum: 21 },
-   { date: 'srijeda 22.10.', day: 'srijeda', dateNum: 22 },
-   { date: 'četvrtak 23.10.', day: 'četvrtak', dateNum: 23 },
-   { date: 'petak 24.10.', day: 'petak', dateNum: 24 },
-   { date: 'subota 25.10.', day: 'subota', dateNum: 25 },
-   { date: 'nedjelja 26.10.', day: 'nedjelja', dateNum: 26 },
-   { date: 'ponedjeljak 27.10.', day: 'ponedjeljak', dateNum: 27 },
-   { date: 'utorak 28.10.', day: 'utorak', dateNum: 28 },
-   { date: 'srijeda 29.10.', day: 'srijeda', dateNum: 29 },
-   { date: 'četvrtak 30.10.', day: 'četvrtak', dateNum: 30 },
-   { date: 'petak 31.10.', day: 'petak', dateNum: 31 }
+// Hrvatski nazivi mjeseci
+const CROATIAN_MONTHS = [
+   'Siječanj', 'Veljača', 'Ožujak', 'Travanj', 'Svibanj', 'Lipanj',
+   'Srpanj', 'Kolovoz', 'Rujan', 'Listopad', 'Studeni', 'Prosinac'
 ];
+
+// Broj dana u svakom mjesecu (2025 nije prijestupna godina)
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+// Nazivi dana u tjednu na hrvatskom
+const CROATIAN_DAYS = ['nedjelja', 'ponedjeljak', 'utorak', 'srijeda', 'četvrtak', 'petak', 'subota'];
+
+// Trenutni mjesec i godina (početna vrijednost)
+let currentMonth = 10; // studeni (0-based: siječanj=0, studeni=10)
+let currentYear = 2025;
+
+// Dinamičko generiranje datuma za trenutni mjesec
+function generateDatesForMonth(year, month) {
+   const dates = [];
+   const daysInMonth = DAYS_IN_MONTH[month];
+
+   for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dayName = CROATIAN_DAYS[date.getDay()];
+
+      dates.push({
+         date: `${dayName} ${day}.${month + 1}.`,
+         day: dayName,
+         dateNum: day
+      });
+   }
+
+   return dates;
+}
+
+// Generiranje nedjelja za onemogućavanje POST opcije
+function generateDisabledPostDates(year, month) {
+   const disabledDates = [];
+   const daysInMonth = DAYS_IN_MONTH[month];
+
+   for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      if (date.getDay() === 0) { // nedjelja je 0
+         const dayName = CROATIAN_DAYS[date.getDay()];
+         disabledDates.push(`${dayName} ${day}.${month + 1}.`);
+      }
+   }
+
+   return disabledDates;
+}
+
+// Početni datumi i onemogućeni datumi
+let dates = generateDatesForMonth(currentYear, currentMonth);
+let disabledPostDates = generateDisabledPostDates(currentYear, currentMonth);
 
 const categories = ['radosna', 'zalosna', 'slavna', 'svjetla', 'post'];
 let scheduleData = {};
-
-// ✅ Nedjelje za koje je POST onemogućen (oktobar 2025)
-const disabledPostDates = ['nedjelja 5.10.', 'nedjelja 12.10.', 'nedjelja 19.10.', 'nedjelja 26.10.'];
 
 // ✅ Funkcija za dobijanje trenutnog datuma
 function getCurrentDate() {
@@ -64,7 +81,7 @@ function getCurrentDate() {
 // ✅ Funkcija za provjeru da li je datum prošao
 function isPastDate(dateNum) {
    const today = new Date();
-   const targetDate = new Date(2025, 9, dateNum); // oktobar je mjesec 9 (0-based: jan=0, feb=1, ..., oct=9)
+   const targetDate = new Date(currentYear, currentMonth, dateNum);
 
    // Postaviti vrijeme na početak dana za preciznu usporedbu
    today.setHours(0, 0, 0, 0);
@@ -76,7 +93,7 @@ function isPastDate(dateNum) {
 // ✅ Funkcija za provjeru da li je danas
 function isToday(dateNum) {
    const today = new Date();
-   const targetDate = new Date(2025, 9, dateNum); // oktobar je mjesec 9
+   const targetDate = new Date(currentYear, currentMonth, dateNum);
 
    // Postaviti vrijeme na početak dana za preciznu usporedbu
    today.setHours(0, 0, 0, 0);
@@ -492,6 +509,191 @@ async function repairBins() {
    }
 }
 
+// Funkcija za prebacivanje podataka u sigurnosni bin
+async function backupDataToAuditBin(data) {
+   try {
+      const timestamp = new Date().toISOString().replace('T', '_').substring(0, 16);
+      const backupEntry = {
+         [`backup_${CROATIAN_MONTHS[currentMonth]}_${currentYear}_${timestamp}`]: data
+      };
+
+      // Učitaj postojeći audit log
+      const existingLog = await loadFromBin(JSONBIN_CONFIG.bins.auditLog) || {};
+
+      // Dodaj backup podatke
+      const updatedLog = { ...existingLog, ...backupEntry };
+
+      // Spremi nazad u audit bin
+      const success = await saveToBin(JSONBIN_CONFIG.bins.auditLog, updatedLog);
+      if (success) {
+         console.log(`✓ Backup podataka za ${CROATIAN_MONTHS[currentMonth]} ${currentYear} uspješno spremljen u audit bin`);
+         return true;
+      } else {
+         console.log('✗ Greška pri spremanju backup-a u audit bin');
+         return false;
+      }
+   } catch (error) {
+      console.log('Greška pri backup-u podataka:', error);
+      return false;
+   }
+}
+
+// Funkcija za ažuriranje mjeseca i godine
+function updateMonthAndYear() {
+   const today = new Date();
+   const newMonth = today.getMonth();
+   const newYear = today.getFullYear();
+
+   if (newMonth !== currentMonth || newYear !== currentYear) {
+      currentMonth = newMonth;
+      currentYear = newYear;
+
+      // Regeneriraj datume za novi mjesec
+      dates = generateDatesForMonth(currentYear, currentMonth);
+      disabledPostDates = generateDisabledPostDates(currentYear, currentMonth);
+
+      // Ažuriraj naslov na stranici
+      updatePageTitle();
+
+      console.log(`✓ Ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}`);
+   }
+}
+
+// Funkcija za ažuriranje naslova na stranici
+function updatePageTitle() {
+   const titleElement = document.querySelector('.header-text p');
+   if (titleElement) {
+      titleElement.textContent = `${CROATIAN_MONTHS[currentMonth]} ${currentYear} - Kliknite na polje za unos/brisanje`;
+   }
+}
+
+// Glavna funkcija za automatsko ažuriranje mjeseca
+async function updateMonth() {
+   try {
+      const today = new Date();
+      const currentDate = today.getDate();
+      const currentMonthActual = today.getMonth();
+      const currentYearActual = today.getFullYear();
+
+      // Provjeri da li je 1. u mjesecu
+      if (currentDate !== 1) {
+         return false; // Nije 1. u mjesecu
+      }
+
+      // Provjeri da li je već napravljeno ažuriranje za ovaj mjesec
+      const lastUpdateKey = `lastMonthUpdate_${currentYearActual}_${currentMonthActual}`;
+      const lastUpdate = localStorage.getItem(lastUpdateKey);
+
+      if (lastUpdate === 'done') {
+         console.log('Ažuriranje mjeseca već je izvršeno za ovaj mjesec');
+         return false; // Već je ažurirano
+      }
+
+      console.log('=== AUTOMATSKO AŽURIRANJE MJESECA - POČETAK ===');
+      showStatus('Ažuriram na novi mjesec...', 'info');
+
+      // 1. Učitaj postojeće podatke iz glavnih binova
+      console.log('Učitavam postojeće podatke za backup...');
+      const currentData = await loadFromBin(JSONBIN_CONFIG.bins.primary) || {};
+
+      // 2. Spremi postojeće podatke u sigurnosni bin
+      if (Object.keys(currentData).length > 0) {
+         console.log('Prebacujem postojeće podatke u sigurnosni bin...');
+         const backupSuccess = await backupDataToAuditBin(currentData);
+         if (backupSuccess) {
+            console.log('✓ Backup uspješan');
+         } else {
+            console.log('✗ Backup neuspješan, ali nastavlja s ažuriranjem');
+         }
+      }
+
+      // 3. Ažuriraj mjesec i godinu
+      updateMonthAndYear();
+
+      // 4. Kreiraj prazne podatke za novi mjesec
+      console.log('Kreiram prazne podatke za novi mjesec...');
+      initializeData();
+
+      // 5. Spremi prazne podatke u sve glavne binove
+      console.log('Spremam prazne podatke u glavne binove...');
+      const binIds = [
+         JSONBIN_CONFIG.bins.primary,
+         JSONBIN_CONFIG.bins.backup1,
+         JSONBIN_CONFIG.bins.backup2
+      ];
+
+      let savedBins = 0;
+      for (let i = 0; i < binIds.length; i++) {
+         const success = await saveToBin(binIds[i], scheduleData);
+         if (success) {
+            savedBins++;
+            console.log(`✓ Bin ${i + 1}: novi mjesec uspješno spremljen`);
+         } else {
+            console.log(`✗ Bin ${i + 1}: greška pri spremanju`);
+         }
+      }
+
+      // 6. Označi da je ažuriranje završeno za ovaj mjesec
+      localStorage.setItem(lastUpdateKey, 'done');
+
+      // 7. Očisti stare oznake (zadržaj samo zadnje 3 mjeseca)
+      cleanupOldUpdateFlags();
+
+      // 8. Prikaži rezultate
+      if (savedBins === binIds.length) {
+         showStatus(`Uspješno ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}`, 'success');
+      } else if (savedBins > 0) {
+         showStatus(`Djelomično ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear} (${savedBins}/${binIds.length} binova)`, 'warning');
+      } else {
+         showStatus('Greška pri ažuriranju mjeseca', 'error');
+      }
+
+      console.log('=== AUTOMATSKO AŽURIRANJE MJESECA - KRAJ ===');
+      console.log(`Ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}, spremljeno u ${savedBins}/${binIds.length} binova`);
+
+      // 9. Ponovno učitaj tablicu
+      renderTable();
+
+      return true;
+
+   } catch (error) {
+      console.error('Greška pri ažuriranju mjeseca:', error);
+      showStatus('Greška pri ažuriranju mjeseca', 'error');
+      return false;
+   }
+}
+
+// Funkcija za brisanje starih oznaka ažuriranja
+function cleanupOldUpdateFlags() {
+   try {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+
+      // Ukloni oznake starije od 3 mjeseca
+      for (let i = 0; i < localStorage.length; i++) {
+         const key = localStorage.key(i);
+         if (key && key.startsWith('lastMonthUpdate_')) {
+            const parts = key.split('_');
+            if (parts.length === 3) {
+               const year = parseInt(parts[1]);
+               const month = parseInt(parts[2]);
+
+               // Izračunaj razliku u mjesecima
+               const monthsDiff = (currentYear - year) * 12 + (currentMonth - month);
+
+               if (monthsDiff > 3) {
+                  localStorage.removeItem(key);
+                  console.log(`Uklonjena stara oznaka: ${key}`);
+               }
+            }
+         }
+      }
+   } catch (error) {
+      console.log('Greška pri čišćenju starih oznaka:', error);
+   }
+}
+
 // Kreiranje tablice
 function renderTable() {
    const tbody = document.getElementById('table-body');
@@ -624,11 +826,26 @@ function editCell(date, category, cellElement) {
 }
 
 // Pokretanje aplikacije
-document.addEventListener('DOMContentLoaded', () => {
-   loadData();
-});
+document.addEventListener('DOMContentLoaded', async () => {
+   // Ažuriraj naslov stranice prema trenutnom mjesecu
+   updatePageTitle();
 
-// Admin funkcionalnost
+   // Provjeri da li treba automatski ažurirati mjesec
+   console.log('Pokretanje aplikacije - provjera ažuriranja mjeseca...');
+
+   const monthUpdated = await updateMonth();
+
+   if (monthUpdated) {
+      console.log('Mjesec je ažuriran, podaci su ponovno učitani');
+      // Podatci su već učitani u updateMonth() funkciji, samo treba renderirati tablicu
+      renderTable();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('schedule-table').style.display = 'table';
+   } else {
+      console.log('Mjesec nije ažuriran, učitavam postojeće podatke');
+      loadData();
+   }
+});// Admin funkcionalnost
 function showAdminInfo() {
    // Zatraži admin kod prije prikaza informacija
    const enteredCode = prompt('Unesite admin kod za pristup informacijama:');
@@ -666,6 +883,16 @@ function showAdminInfo() {
 📡 Status spremanja:
 • Uspješno poslano = sva 3 bina OK
 • Podatci uploadani na cloud = 2+ bina OK
+
+� Automatsko ažuriranje:
+• Svaki 1. u mjesecu aplikacija automatski:
+  - Prebacuje postojeće podatke u sigurnosni bin
+  - Kreira praznu tablicu za novi mjesec
+  - Ažurira broj dana i naslov
+
+🗑️ Sigurnosni backup:
+• Bin ID: ${JSONBIN_CONFIG.bins.auditLog}
+• Automatski backup postojećih podataka prije brisanja
    `;
 
    alert(info);
