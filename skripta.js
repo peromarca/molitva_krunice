@@ -567,29 +567,12 @@ function updatePageTitle() {
    }
 }
 
-// Glavna funkcija za automatsko ažuriranje mjeseca (SAMO ADMIN)
+// Glavna funkcija za ažuriranje mjeseca
 async function updateMonth() {
    try {
       const today = new Date();
-      const currentDate = today.getDate();
       const currentMonthActual = today.getMonth();
       const currentYearActual = today.getFullYear();
-
-      // Provjeri da li je 1. u mjesecu
-      if (currentDate !== 1) {
-         return false; // Nije 1. u mjesecu
-      }
-
-      // ✅ ADMIN PROVJERA - samo admin može ažurirati mjesec
-      const adminCode = prompt(
-         `PRVI DAN MJESECA DETEKTIRAN!\n\n${CROATIAN_MONTHS[currentMonthActual]} ${currentYearActual}\n\nZa ažuriranje mjeseca trebate admin kod:`,
-         ''
-      );
-
-      if (adminCode !== ADMIN_CONFIG.code) {
-         console.log('Ažuriranje mjeseca preskočeno - nema admin koda');
-         return false; // Nije admin
-      }
 
       // Provjeri da li je već napravljeno ažuriranje za ovaj mjesec (u audit bin-u)
       console.log('Provjeravam da li je mjesec već ažuriran...');
@@ -602,7 +585,7 @@ async function updateMonth() {
          return false; // Već je ažurirano
       }
 
-      console.log('=== AUTOMATSKO AŽURIRANJE MJESECA - POČETAK ===');
+      console.log('=== AŽURIRANJE MJESECA - POČETAK ===');
       showStatus('Ažuriram na novi mjesec...', 'info');
 
       // 1. Učitaj postojeće podatke iz glavnih binova
@@ -667,7 +650,7 @@ async function updateMonth() {
          showStatus('Greška pri ažuriranju mjeseca', 'error');
       }
 
-      console.log('=== AUTOMATSKO AŽURIRANJE MJESECA - KRAJ ===');
+      console.log('=== AŽURIRANJE MJESECA - KRAJ ===');
       console.log(`Ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}, spremljeno u ${savedBins}/${binIds.length} binova`);
 
       // 10. Ponovno učitaj tablicu
@@ -726,13 +709,8 @@ async function manualUpdateMonth() {
       delete auditData[updateCheckKey]; // Ukloni oznaku
       await saveToBin(JSONBIN_CONFIG.bins.auditLog, auditData);
 
-      // Prisilno pozovi updateMonth (bez prompta za admin kod)
-      const originalPrompt = window.prompt;
-      window.prompt = () => ADMIN_CONFIG.code; // Preskoči admin prompt
-
+      // Pozovi glavnu funkciju ažuriranja
       const result = await updateMonth();
-
-      window.prompt = originalPrompt; // Vrati originalni prompt
 
       if (result) {
          showStatus('Ručno ažuriranje uspješno završeno', 'success');
@@ -912,21 +890,9 @@ document.addEventListener('DOMContentLoaded', async () => {
    // Ažuriraj naslov stranice prema trenutnom mjesecu
    updatePageTitle();
 
-   // Provjeri da li treba automatski ažurirati mjesec
-   console.log('Pokretanje aplikacije - provjera ažuriranja mjeseca...');
-
-   const monthUpdated = await updateMonth();
-
-   if (monthUpdated) {
-      console.log('Mjesec je ažuriran, podaci su ponovno učitani');
-      // Podatci su već učitani u updateMonth() funkciji, samo treba renderirati tablicu
-      renderTable();
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('schedule-table').style.display = 'table';
-   } else {
-      console.log('Mjesec nije ažuriran, učitavam postojeće podatke');
-      loadData();
-   }
+   // Jednostavno učitaj podatke bez automatskog ažuriranja
+   console.log('Pokretanje aplikacije - učitavanje podataka...');
+   loadData();
 });// Admin funkcionalnost
 function showAdminInfo() {
    // Zatraži admin kod prije prikaza informacija
@@ -966,21 +932,20 @@ function showAdminInfo() {
 • Uspješno poslano = sva 3 bina OK
 • Podatci uploadani na cloud = 2+ bina OK
 
-🔄 Automatsko ažuriranje:
-• Svaki 1. u mjesecu aplikacija automatski:
-  - Traži admin kod za ažuriranje
-  - Prebacuje postojeće podatke u sigurnosni bin
-  - Kreira praznu tablicu za novi mjesec
-  - Ažurira broj dana i naslov
+🔄 Ručno ažuriranje mjeseca:
+• Klik na 🔄 ikonu u header-u
+• Radi samo 1. u mjesecu + admin kod
+• Prebacuje postojeće podatke u sigurnosni bin
+• Kreira praznu tablicu za novi mjesec
+• Ažurira broj dana i naslov
 • Provjera ažuriranja se sprema u audit bin
 
 🛠️ Admin funkcije:
-• manualUpdateMonth() - ručno ažuriranje mjeseca (SAMO 1. u mjesecu!)
-• repairBins() - sinhronizacija binova
+• 🔄 Ručno ažuriranje mjeseca (klik na ikonu)
+• 🔧 Repair binova (sinhronizacija)
 
 🔒 Sigurnosne mjere:
-• Automatsko ažuriranje - samo 1. u mjesecu + admin kod
-• Ručno ažuriranje - samo 1. u mjesecu + admin kod
+• Ručno ažuriranje - samo 1. u mjesecu + admin kod + klik na ikonu
 • Sprječava slučajno brisanje podataka bilo koji drugi dan
 
 🗑️ Sigurnosni backup:
