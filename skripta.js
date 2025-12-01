@@ -28,7 +28,7 @@ const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const CROATIAN_DAYS = ['nedjelja', 'ponedjeljak', 'utorak', 'srijeda', 'četvrtak', 'petak', 'subota'];
 
 // Trenutni mjesec i godina (početna vrijednost)
-let currentMonth = 10; // studeni (0-based: siječanj=0, studeni=10)
+let currentMonth = 11; // prosinac (0-based: siječanj=0, prosinac=11)
 let currentYear = 2025;
 
 // Dinamičko generiranje datuma za trenutni mjesec
@@ -925,6 +925,16 @@ function editCell(date, category, cellElement) {
 
 // Pokretanje aplikacije
 document.addEventListener('DOMContentLoaded', async () => {
+   // ✅ POSTAVI TRENUTNI MJESEC I GODINU
+   const today = new Date();
+   currentMonth = today.getMonth(); // 0-based (0=siječanj, 11=prosinac)
+   currentYear = today.getFullYear();
+   console.log(`📅 Postavljen mjesec: ${CROATIAN_MONTHS[currentMonth]} ${currentYear}`);
+
+   // Regeneriraj datume za trenutni mjesec
+   dates = generateDatesForMonth(currentYear, currentMonth);
+   disabledPostDates = generateDisabledPostDates(currentYear, currentMonth);
+
    // Ažuriraj naslov stranice prema trenutnom mjesecu
    updatePageTitle();
 
