@@ -606,11 +606,16 @@ async function updateMonth() {
       // 3. Ažuriraj mjesec i godinu
       updateMonthAndYear();
 
-      // 4. Kreiraj prazne podatke za novi mjesec
+      // 4. RESETIRAJ scheduleData na prazan objekt (briše sve stare podatke)
+      console.log('Resetiram scheduleData...');
+      scheduleData = {};
+      console.log('✓ scheduleData resetiran na prazan objekt');
+
+      // 5. Kreiraj prazne podatke za novi mjesec
       console.log('Kreiram prazne podatke za novi mjesec...');
       initializeData();
 
-      // 5. Spremi prazne podatke u sve glavne binove
+      // 6. Spremi prazne podatke u sve glavne binove
       console.log('Spremam prazne podatke u glavne binove...');
       const binIds = [
          JSONBIN_CONFIG.bins.primary,
@@ -629,19 +634,19 @@ async function updateMonth() {
          }
       }
 
-      // 6. Označi da je ažuriranje završeno za ovaj mjesec (u audit bin)
+      // 7. Označi da je ažuriranje završeno za ovaj mjesec (u audit bin)
       console.log('Označavam da je ažuriranje završeno...');
       const updatedAuditData = await loadFromBin(JSONBIN_CONFIG.bins.auditLog) || {};
       updatedAuditData[updateCheckKey] = 'completed';
       await saveToBin(JSONBIN_CONFIG.bins.auditLog, updatedAuditData);
 
-      // 7. Također spremi u localStorage kao backup
+      // 8. Također spremi u localStorage kao backup
       localStorage.setItem(`lastMonthUpdate_${currentYearActual}_${currentMonthActual}`, 'done');
 
-      // 8. Očisti stare oznake (zadržaj samo zadnje 3 mjeseca)
+      // 9. Očisti stare oznake (zadržaj samo zadnje 3 mjeseca)
       cleanupOldUpdateFlags();
 
-      // 9. Prikaži rezultate
+      // 10. Prikaži rezultate
       if (savedBins === binIds.length) {
          showStatus(`Uspješno ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}`, 'success');
       } else if (savedBins > 0) {
@@ -653,7 +658,7 @@ async function updateMonth() {
       console.log('=== AŽURIRANJE MJESECA - KRAJ ===');
       console.log(`Ažurirano na ${CROATIAN_MONTHS[currentMonth]} ${currentYear}, spremljeno u ${savedBins}/${binIds.length} binova`);
 
-      // 10. Ponovno učitaj tablicu
+      // 11. Ponovno učitaj tablicu
       renderTable();
 
       return true;
@@ -679,19 +684,42 @@ async function manualUpdateMonth() {
    const currentMonthActual = today.getMonth();
    const currentYearActual = today.getFullYear();
 
-   // ✅ PROVJERA - samo prvi u mjesecu
-   if (currentDate !== 1) {
-      showStatus(`Ažuriranje mjeseca je moguće samo 1. u mjesecu! (Danas je ${currentDate}.)`, 'error');
-      alert(`SIGURNOSNA ZAŠTITA!\n\nAžuriranje mjeseca je dozvoljeno samo 1. u mjesecu.\nDanas je ${currentDate}. ${CROATIAN_MONTHS[currentMonthActual]} ${currentYearActual}.\n\nOva zaštita sprječava slučajno brisanje podataka.`);
+   // Provjeri da li je sutra prvi u mjesecu
+   const tomorrow = new Date(today);
+   tomorrow.setDate(today.getDate() + 1);
+   const tomorrowDate = tomorrow.getDate();
+   const tomorrowMonth = tomorrow.getMonth();
+   const tomorrowYear = tomorrow.getFullYear();
+
+   // ✅ PROVJERA - samo 1. u mjesecu ILI dan prije 1. (zadnji dan mjeseca)
+   const isFirstOfMonth = currentDate === 1;
+   const isLastDayBeforeNewMonth = tomorrowDate === 1; // Ako je sutra 1., znači danas je zadnji dan
+
+   if (!isFirstOfMonth && !isLastDayBeforeNewMonth) {
+      showStatus(`Ažuriranje mjeseca je moguće samo 1. u mjesecu ili dan prije! (Danas je ${currentDate}.)`, 'error');
+      alert(`SIGURNOSNA ZAŠTITA!\n\nAžuriranje mjeseca je dozvoljeno samo:\n• 1. u mjesecu\n• Dan prije 1. (zadnji dan prethodnog mjeseca)\n\nDanas je ${currentDate}. ${CROATIAN_MONTHS[currentMonthActual]} ${currentYearActual}.\n\nOva zaštita sprječava slučajno brisanje podataka.`);
       return;
    }
 
+   // Odredi za koji mjesec radimo reset
+   let targetMonth, targetYear;
+   if (isFirstOfMonth) {
+      // Ako je danas 1., resetiramo za ovaj mjesec
+      targetMonth = currentMonthActual;
+      targetYear = currentYearActual;
+   } else {
+      // Ako je dan prije 1., resetiramo za sutrašnji mjesec
+      targetMonth = tomorrowMonth;
+      targetYear = tomorrowYear;
+   }
+
    const confirmation = confirm(
-      `RUČNO AŽURIRANJE MJESECA - 1. ${CROATIAN_MONTHS[currentMonthActual]} ${currentYearActual}\n\n` +
+      `RUČNO AŽURIRANJE MJESECA - ${CROATIAN_MONTHS[targetMonth]} ${targetYear}\n\n` +
+      `${isFirstOfMonth ? 'Danas je 1. u mjesecu.' : `Danas je ${currentDate}. ${CROATIAN_MONTHS[currentMonthActual]} (dan prije 1. ${CROATIAN_MONTHS[targetMonth]}).`}\n\n` +
       `Ova akcija će:\n\n` +
       `• Prebaciti sve postojeće podatke u sigurnosni bin\n` +
       `• Obrisati trenutnu tablicu\n` +
-      `• Kreirati praznu tablicu za ${CROATIAN_MONTHS[currentMonthActual]} ${currentYearActual}\n\n` +
+      `• Kreirati praznu tablicu za ${CROATIAN_MONTHS[targetMonth]} ${targetYear}\n\n` +
       `Da li ste sigurni da želite nastaviti?`
    );
 
@@ -703,11 +731,21 @@ async function manualUpdateMonth() {
       console.log('=== RUČNO AŽURIRANJE MJESECA - POČETAK ===');
       showStatus('Ručno ažuriram mjesec...', 'info');
 
-      // Resetiraj provjeru da omogućiš ažuriranje
-      const updateCheckKey = `monthUpdate_${currentYearActual}_${currentMonthActual}`;
+      // Resetiraj provjeru za ciljani mjesec
+      const updateCheckKey = `monthUpdate_${targetYear}_${targetMonth}`;
       const auditData = await loadFromBin(JSONBIN_CONFIG.bins.auditLog) || {};
       delete auditData[updateCheckKey]; // Ukloni oznaku
       await saveToBin(JSONBIN_CONFIG.bins.auditLog, auditData);
+
+      // Ako radimo dan prije 1., ručno postavi globalne varijable na novi mjesec
+      if (isLastDayBeforeNewMonth) {
+         console.log(`Dan prije novog mjeseca - postavljam na ${CROATIAN_MONTHS[targetMonth]} ${targetYear}`);
+         currentMonth = targetMonth;
+         currentYear = targetYear;
+         dates = generateDatesForMonth(targetYear, targetMonth);
+         disabledPostDates = generateDisabledPostDates(targetYear, targetMonth);
+         updatePageTitle();
+      }
 
       // Pozovi glavnu funkciju ažuriranja
       const result = await updateMonth();
